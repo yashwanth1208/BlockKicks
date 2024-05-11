@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -37,6 +40,30 @@ type Blockchain struct {
 
 var Blockchain *Blockchain
 
+func newSneaker(w http.ResponseWriter, r *http.Request) {
+	var sneaker Sneaker
+
+	if err := json.NewDecoder(r.Body).Decode(&sneaker); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("Could not create:%v", err)
+		w.Write([]byte("Could not add new sneaker"))
+		return
+	}
+
+	h := md5.New()
+	io.WriteString(h, sneaker.ISBN+sneaker.ManufactureDate)
+	sneaker.ID = fmt.Sprintf("%x", h.Sum(nil))
+
+	resp, err := json.MarshalIndent(sneaker, "", " ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("Could not marshal payload: %v", err)
+		w.Write([]byte("Could not save book data"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+}
 func main() {
 	fmt.Println("BlockKicks")
 	r := mux.NewRouter()
